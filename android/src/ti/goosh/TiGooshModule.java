@@ -16,6 +16,7 @@ import android.view.Window;
 
 
 import java.lang.reflect.Type;
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -37,6 +38,10 @@ import com.google.android.gms.gcm.GoogleCloudMessaging;
 import com.google.android.gms.iid.InstanceID;
 
 import android.app.NotificationManager;
+import android.service.notification.StatusBarNotification;
+import android.app.PendingIntent;
+import java.util.ArrayList;
+import java.util.List;
 
 @Kroll.module(name="TiGoosh", id="ti.goosh")
 public class TiGooshModule extends KrollModule {
@@ -59,13 +64,6 @@ public class TiGooshModule extends KrollModule {
 
 	public static TiGooshModule getInstance() {
 		return instance;
-	}
-
-	@Kroll.onAppCreate
-	public static void onAppCreate(TiApplication app) {
-		// Register the events to ensure the Intent parsing on resume
-		TiApplication.getInstance().registerActivityLifecycleCallbacks(new TiGooshActivityLifecycleCallbacks());
-		Log.d(LCAT, "onAppCreate " + app + " (" + (instance != null) + ")");
 	}
 
 	public void parseIncomingNotificationIntent() {
@@ -104,6 +102,15 @@ public class TiGooshModule extends KrollModule {
 
 	private static NotificationManager getNotificationManager() {
 		return (NotificationManager) TiApplication.getInstance().getApplicationContext().getSystemService(Context.NOTIFICATION_SERVICE);
+	}
+
+	private static Intent getIntent(PendingIntent pendingIntent) {
+		try {
+			Method getIntent = PendingIntent.class.getDeclaredMethod("getIntent");
+			return (Intent) getIntent.invoke(pendingIntent);
+		} catch(Exception e) {
+			throw new RuntimeException(e);
+		}
 	}
 
 	@Kroll.method
@@ -145,6 +152,15 @@ public class TiGooshModule extends KrollModule {
 	@Kroll.method
 	public void cancel(int id) {
 		getNotificationManager().cancel(-1 * id);
+	}
+
+	@Kroll.method
+	public Object getActiveNotifications() {
+		ArrayList<String> list = new ArrayList<String>();
+		for (StatusBarNotification sbn : getNotificationManager().getActiveNotifications()){
+			list.add(getIntent(sbn.getNotification().contentIntent).getStringExtra("tigoosh.notification"));
+		}
+		return list.toArray();
 	}
 
 	@Kroll.method
